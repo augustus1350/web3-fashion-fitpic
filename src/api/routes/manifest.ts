@@ -12,7 +12,7 @@ manifestRouter.get(
       "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&auto=format&fit=crop";
 
     res.json({
-      accountAssociation: {
+      accountAssociation: env.accountAssociation ?? {
         header: "PLACEHOLDER",
         payload: "PLACEHOLDER",
         signature: "PLACEHOLDER",
