@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+.env.test
+.integration-test-mode.json
+.test-pglite-data/
+.test-pglite-verify/
+.dev-pglite-data/

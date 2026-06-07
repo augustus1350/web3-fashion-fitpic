@@ -1,0 +1,55 @@
+{
+  "name": "web3-fashion-fitpic-poc",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/server.ts",
+    "dev:stable": "tsx src/server.ts",
+    "db:reset": "powershell -Command \"Remove-Item -Recurse -Force .dev-pglite-data -ErrorAction SilentlyContinue; Write-Host 'PGlite reset. Run: npm run db:seed'\"",
+    "frame:dev-phase": "curl -X POST http://localhost:3000/frames/dev/submission-phase",
+    "tunnel": "npx cloudflared tunnel --url http://localhost:3000",
+    "tunnel:lt": "npx localtunnel --port 3000 --local-host 127.0.0.1",
+    "test:tunnel": "powershell -ExecutionPolicy Bypass -File scripts/test-tunnel.ps1",
+    "dev:setup": "npm run db:seed",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/setup-local.ps1",
+    "dev:docker": "docker compose up -d --wait && cross-env USE_PGLITE=0 npm run db:migrate && npm run db:seed && npm run dev",
+    "start": "node dist/server.js",
+    "start:prod": "tsx prisma/seed.ts && node dist/server.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration:watch": "vitest --config vitest.integration.config.ts",
+    "test:integration:docker": "docker compose -f docker-compose.test.yml up -d --wait && cross-env FORCE_TEST_POSTGRES=1 TEST_DATABASE_URL=postgresql://test:test@localhost:5433/web3_fashion_test?schema=public npm run test:integration",
+    "test:integration:docker:down": "docker compose -f docker-compose.test.yml down -v",
+    "test:all": "npm run test && npm run test:integration",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.14",
+    "@prisma/client": "^6.9.0",
+    "pglite-prisma-adapter": "^0.6.1",
+    "express": "^5.1.0",
+    "pg": "^8.16.3",
+    "tsx": "^4.20.3",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/pg": "^8.15.5",
+    "@types/node": "^22.15.0",
+    "cross-env": "^7.0.3",
+    "dotenv": "^16.5.0",
+    "prisma": "^6.9.0",
+    "supertest": "^7.1.1",
+    "@types/supertest": "^6.0.3",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  }
+}

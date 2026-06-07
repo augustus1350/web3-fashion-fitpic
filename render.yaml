@@ -1,0 +1,23 @@
+# Deploy: https://render.com -> New -> Blueprint -> connect GitHub repo
+services:
+  - type: web
+    name: fitpic-farcaster-poc
+    runtime: node
+    plan: free
+    buildCommand: >
+      npm install &&
+      npx prisma generate &&
+      npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/pglite-schema.sql &&
+      npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: USE_PGLITE
+        value: "1"
+      - key: FOUNDER_FIDS
+        value: "1"
+      - key: ENABLE_DEV_ROUTES
+        value: "1"
+      # APP_URL optional - falls back to RENDER_EXTERNAL_URL on Render

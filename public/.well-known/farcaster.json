@@ -1,0 +1,20 @@
+{
+  "accountAssociation": {
+    "header": "PLACEHOLDER",
+    "payload": "PLACEHOLDER",
+    "signature": "PLACEHOLDER"
+  },
+  "frame": {
+    "version": "1",
+    "name": "FitPic PoC",
+    "iconUrl": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=200&auto=format&fit=crop",
+    "homeUrl": "https://YOUR-TUNNEL-URL.trycloudflare.com/frames",
+    "splashImageUrl": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&auto=format&fit=crop",
+    "splashBackgroundColor": "#111111",
+    "heroImageUrl": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1200&auto=format&fit=crop",
+    "tagline": "Submit and vote on FitPics",
+    "ogTitle": "FitPic",
+    "ogDescription": "Farcaster-native fashion voting PoC",
+    "ogImageUrl": "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=1200&auto=format&fit=crop"
+  }
+}
