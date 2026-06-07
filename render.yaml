@@ -11,8 +11,6 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
-        scopes:
-          - runtime
       - key: USE_PGLITE
         value: "1"
       - key: FOUNDER_FIDS
