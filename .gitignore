@@ -6,3 +6,5 @@ dist/
 .test-pglite-data/
 .test-pglite-verify/
 .dev-pglite-data/
+.render-test-pglite/
+uploads/
