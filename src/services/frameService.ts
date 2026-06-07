@@ -46,6 +46,18 @@ function resolveCastHash(payload: FrameActionPayload, fid: number): string {
   return `0xframe_${fid}_${Date.now()}`;
 }
 
+/** Warpcast needs a real, reachable image; reject placeholders/non-https. */
+function safeEmbedImage(candidate: string | undefined, fallback: string): string {
+  if (
+    !candidate ||
+    !candidate.startsWith("https://") ||
+    candidate.includes("example.com")
+  ) {
+    return fallback;
+  }
+  return candidate;
+}
+
 export async function renderHomeEmbed(ctx: FrameContext): Promise<string> {
   const epoch = await getOrCreateCurrentEpoch();
 
@@ -63,7 +75,7 @@ export async function renderHomeEmbed(ctx: FrameContext): Promise<string> {
     const top = feed[0];
     return renderEmbedPage({
       baseUrl: ctx.baseUrl,
-      imageUrl: top?.imageUrl ?? FRAME_TEST_LOOKS[0].imageUrl,
+      imageUrl: safeEmbedImage(top?.imageUrl, FRAME_TEST_LOOKS[0].imageUrl),
       title: "FitPic - Voting phase",
       subtitle: top ? `Vote on looks (${top.totalVotes} votes on leader)` : "Vote on community looks.",
     });
