@@ -6,14 +6,20 @@ import { PGlite } from "@electric-sql/pglite";
 export const DEV_PGLITE_DIR = path.join(process.cwd(), ".dev-pglite-data");
 const CACHED_SCHEMA_SQL = path.join(process.cwd(), "prisma", "pglite-schema.sql");
 
+function stripBom(value: string): string {
+  return value.charCodeAt(0) === 0xfeff ? value.slice(1) : value;
+}
+
 export function getPrismaSchemaSql(): string {
   if (existsSync(CACHED_SCHEMA_SQL)) {
-    return readFileSync(CACHED_SCHEMA_SQL, "utf-8");
+    return stripBom(readFileSync(CACHED_SCHEMA_SQL, "utf-8"));
   }
 
-  return execSync(
-    "npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
-    { encoding: "utf-8" },
+  return stripBom(
+    execSync(
+      "npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script",
+      { encoding: "utf-8" },
+    ),
   );
 }
 

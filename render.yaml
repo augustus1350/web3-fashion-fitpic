@@ -4,7 +4,7 @@ services:
     name: fitpic-farcaster-poc
     runtime: node
     plan: free
-    buildCommand: npm install --include=dev && npx prisma generate && npm run build
+    buildCommand: npm install --include=dev && npx prisma generate && npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/pglite-schema.sql && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /health
     envVars:
