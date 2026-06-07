@@ -7,7 +7,6 @@ services:
     buildCommand: npm install --include=dev && npx prisma generate && npm run build
     startCommand: npm run start:prod
     healthCheckPath: /health
-    healthCheckGracePeriodSeconds: 180
     envVars:
       - key: NODE_ENV
         value: production
