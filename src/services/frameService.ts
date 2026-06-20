@@ -10,6 +10,7 @@ import {
   submitVote,
 } from "./epochService";
 import { renderEmbedPage, renderFramePage } from "./frameHtml";
+import { looksLikeCastUrl, resolveCastImage } from "./castResolver";
 import { getOrCreateFrameUser } from "./frameUserService";
 
 export interface FrameActionPayload {
@@ -98,13 +99,11 @@ export async function renderHomeFrame(ctx: FrameContext): Promise<string> {
       baseUrl: ctx.baseUrl,
       imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
       title: "FitPic - Submission phase",
-      subtitle: "Pick a test look or paste your own HTTPS image URL.",
+      subtitle: "Paste a link to your Farcaster FitPic cast, then submit.",
       postUrl: url,
       textInput: true,
-      textInputPlaceholder: "https://…/your-fitpic.jpg",
-      buttons: FRAME_TEST_LOOKS.map((look) => ({
-        label: `Submit ${look.label}`,
-      })),
+      textInputPlaceholder: "https://warpcast.com/you/0x… (your cast link)",
+      buttons: [{ label: "Submit cast link" }],
     });
   }
 
@@ -173,26 +172,39 @@ async function handleSubmissionAction(
   const fid = resolveFid(payload);
   await getOrCreateFrameUser(fid);
 
-  const customUrl = payload.untrustedData?.inputText?.trim();
-  const preset = FRAME_TEST_LOOKS[buttonIndex - 1];
+  const input = payload.untrustedData?.inputText?.trim();
 
-  if (!preset && !customUrl) {
+  if (!input) {
     return renderFramePage({
       baseUrl: ctx.baseUrl,
       imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
-      title: "Pick a look or paste a URL",
-      subtitle: "Use a button for test looks, or paste an HTTPS image link above.",
+      title: "Paste your cast link",
+      subtitle: "Copy the link of a FitPic you posted on Farcaster and paste it above.",
       postUrl: postUrlValue,
       textInput: true,
-      textInputPlaceholder: "https://…/your-fitpic.jpg",
-      buttons: FRAME_TEST_LOOKS.map((look) => ({ label: `Submit ${look.label}` })),
+      textInputPlaceholder: "https://warpcast.com/you/0x… (your cast link)",
+      buttons: [{ label: "Submit cast link" }],
     });
   }
 
-  const imageUrl = preset?.imageUrl ?? customUrl!;
-  const castHash = resolveCastHash(payload, fid);
-
   try {
+    let imageUrl: string;
+    let castHash: string;
+
+    if (looksLikeCastUrl(input)) {
+      const resolved = await resolveCastImage(input);
+      imageUrl = resolved.imageUrl;
+      castHash = resolved.castHash;
+    } else if (input.startsWith("https://")) {
+      imageUrl = input;
+      castHash = resolveCastHash(payload, fid);
+    } else {
+      throw new AppError(
+        "INVALID_INPUT",
+        "Paste a Farcaster cast link (warpcast.com or farcaster.xyz).",
+      );
+    }
+
     const submission = await submitFitPic({
       farcasterFid: fid,
       farcasterCastHash: castHash,
@@ -204,7 +216,7 @@ async function handleSubmissionAction(
       baseUrl: ctx.baseUrl,
       imageUrl: submission.imageUrl,
       title: "FitPic submitted!",
-      subtitle: `FID ${fid} · ${preset?.label ?? "Custom look"}`,
+      subtitle: `FID ${fid} · linked from your cast`,
       postUrl: postUrlValue,
       buttons: [{ label: "Submit another" }],
     });
@@ -213,10 +225,12 @@ async function handleSubmissionAction(
       error instanceof AppError ? error.message : "Could not submit FitPic.";
     return renderFramePage({
       baseUrl: ctx.baseUrl,
-      imageUrl: imageUrl,
+      imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
       title: "Submission failed",
       subtitle: message,
       postUrl: postUrlValue,
+      textInput: true,
+      textInputPlaceholder: "https://warpcast.com/you/0x… (your cast link)",
       buttons: [{ label: "Try again" }],
     });
   }

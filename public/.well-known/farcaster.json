@@ -1,8 +1,8 @@
 {
   "accountAssociation": {
-    "header": "PLACEHOLDER",
-    "payload": "PLACEHOLDER",
-    "signature": "PLACEHOLDER"
+    "header": "eyJmaWQiOjIzNTU2MSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweGY4OUU1NTkxMjI2NTlDRDc1M0M1MzE4MTVlRDA1MDlDNDU3OEM0OWUifQ",
+    "payload": "eyJkb21haW4iOiJmaXRwaWMtZmFyY2FzdGVyLXBvYy5vbnJlbmRlci5jb20ifQ",
+    "signature": "30NmAizn1xP4Xa25/T0JKuhS8W1hKFaFx1YR02jl+slJeMMjfkNS7CHEWWBkIp7eTCv/qdOAZjtfArQy/RObmhs="
   },
   "frame": {
     "version": "1",

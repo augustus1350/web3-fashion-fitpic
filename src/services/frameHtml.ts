@@ -96,7 +96,7 @@ export function renderEmbedPage(options: {
     <h1>${escapeHtml(title)}</h1>
     <p>${escapeHtml(subtitle ?? "")}</p>
     <img src="${escapeHtml(imageUrl)}" alt="FitPic preview" />
-    <p><a href="${escapeHtml(baseUrl.replace(/\/$/, ""))}/app">Open FitPic app (upload)</a></p>
+    <p><a href="${escapeHtml(baseUrl.replace(/\/$/, ""))}/app">Open FitPic app (submit a cast link)</a></p>
     <p><a href="${escapeHtml(framesUrl)}">Open FitPic Frame</a></p>
   </body>
 </html>`;

@@ -6,7 +6,7 @@ export interface AppPageOptions {
   devRoutes: boolean;
 }
 
-/** Interactive Farcaster Mini App webview: upload your FitPic from your device. */
+/** Interactive Farcaster Mini App webview: submit a FitPic by linking a cast. */
 export function renderAppPage(options: AppPageOptions): string {
   const { baseUrl, phase, devRoutes } = options;
   const isSubmission = phase === EpochPhase.SUBMISSION;
@@ -16,34 +16,30 @@ export function renderAppPage(options: AppPageOptions): string {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FitPic - Upload</title>
+    <title>FitPic - Submit a look</title>
     <style>
       :root { color-scheme: dark; }
       * { box-sizing: border-box; }
       body {
         font-family: system-ui, -apple-system, sans-serif;
         background: #0d0d0f; color: #f4f4f5;
-        margin: 0; padding: 20px; max-width: 480px; margin: 0 auto;
+        margin: 0 auto; padding: 20px; max-width: 480px;
       }
       h1 { font-size: 1.4rem; margin: 0 0 4px; }
-      p.sub { color: #a1a1aa; margin: 0 0 20px; font-size: 0.9rem; }
+      p.sub { color: #a1a1aa; margin: 0 0 18px; font-size: 0.9rem; }
       .card { background: #18181b; border: 1px solid #27272a; border-radius: 16px; padding: 18px; }
-      label.drop {
-        display: flex; flex-direction: column; align-items: center; justify-content: center;
-        gap: 8px; border: 2px dashed #3f3f46; border-radius: 12px; padding: 28px 16px;
-        text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+      .badge { display: inline-block; background: #27272a; border-radius: 999px; padding: 3px 10px; font-size: 0.75rem; color: #a1a1aa; margin-bottom: 6px; }
+      ol.steps { margin: 12px 0 16px; padding-left: 1.2rem; color: #d4d4d8; font-size: 0.88rem; }
+      ol.steps li { margin-bottom: 4px; }
+      label.lbl { display: block; font-size: 0.85rem; color: #a1a1aa; margin: 14px 0 6px; }
+      input.text {
+        width: 100%; background: #0d0d0f; border: 1px solid #3f3f46; color: #f4f4f5;
+        border-radius: 10px; padding: 11px 12px; font-size: 0.92rem;
       }
-      label.drop:hover { border-color: #6366f1; background: #1c1c22; }
-      label.drop span.hint { color: #a1a1aa; font-size: 0.85rem; }
-      input[type=file] { display: none; }
+      input.text:focus { outline: none; border-color: #6366f1; }
       #preview { display: none; width: 100%; border-radius: 12px; margin-top: 14px; }
-      .fid-row { display: flex; align-items: center; gap: 10px; margin-top: 16px; font-size: 0.9rem; }
-      .fid-row input {
-        flex: 1; background: #0d0d0f; border: 1px solid #3f3f46; color: #f4f4f5;
-        border-radius: 8px; padding: 8px 10px; font-size: 0.9rem;
-      }
       button.primary {
-        width: 100%; margin-top: 18px; padding: 14px; border: none; border-radius: 12px;
+        width: 100%; margin-top: 16px; padding: 14px; border: none; border-radius: 12px;
         background: #6366f1; color: white; font-size: 1rem; font-weight: 600; cursor: pointer;
       }
       button.primary:disabled { background: #3f3f46; color: #71717a; cursor: not-allowed; }
@@ -52,28 +48,29 @@ export function renderAppPage(options: AppPageOptions): string {
         border-radius: 12px; background: transparent; color: #a1a1aa; cursor: pointer; font-size: 0.9rem;
       }
       #status { margin-top: 14px; font-size: 0.9rem; min-height: 1.2em; }
-      #status.ok { color: #4ade80; } #status.err { color: #f87171; }
-      .badge { display: inline-block; background: #27272a; border-radius: 999px; padding: 3px 10px; font-size: 0.75rem; color: #a1a1aa; }
+      #status.ok { color: #4ade80; } #status.err { color: #f87171; } #status.busy { color: #a1a1aa; }
     </style>
   </head>
   <body>
     <h1>FitPic</h1>
-    <p class="sub">Upload your look and submit it to the current epoch.</p>
+    <p class="sub">Link a FitPic you posted on Farcaster. Your cast image gets entered into the current epoch.</p>
     <div class="card">
-      <div class="badge" id="phaseBadge">Phase: ${escapeAttr(phase)}</div>
-      <div id="uploadUi" style="${isSubmission ? "" : "display:none"}">
+      <div class="badge">Phase: ${escapeAttr(phase)}</div>
+      <div id="submitUi" style="${isSubmission ? "" : "display:none"}">
+        <ol class="steps">
+          <li>Post your FitPic as a cast on Farcaster (with the photo).</li>
+          <li>Open the cast, tap share, and copy its link.</li>
+          <li>Paste the link below and submit.</li>
+        </ol>
         <form id="form">
-          <label class="drop" for="file" style="margin-top:14px">
-            <strong>Tap to choose a photo</strong>
-            <span class="hint">JPG or PNG, max 8 MB</span>
-          </label>
-          <input type="file" id="file" name="image" accept="image/*" />
-          <img id="preview" alt="preview" />
-          <div class="fid-row">
-            <span>Farcaster FID</span>
-            <input id="fid" name="fid" inputmode="numeric" placeholder="e.g. 1" />
-          </div>
-          <button type="submit" class="primary" id="submitBtn" disabled>Submit FitPic</button>
+          <label class="lbl" for="castUrl">Farcaster cast link</label>
+          <input class="text" id="castUrl" name="castUrl" type="url"
+            placeholder="https://warpcast.com/yourname/0x..." autocomplete="off" />
+          <img id="preview" alt="resolved cast image" />
+          <label class="lbl" for="fid">Your Farcaster FID</label>
+          <input class="text" id="fid" name="fid" inputmode="numeric" placeholder="e.g. 1" />
+          <button type="button" class="ghost" id="previewBtn">Preview image</button>
+          <button type="submit" class="primary" id="submitBtn">Submit FitPic</button>
         </form>
       </div>
       <div id="closedUi" style="${isSubmission ? "display:none" : ""}">
@@ -89,9 +86,10 @@ export function renderAppPage(options: AppPageOptions): string {
 
     <script type="module">
       const BASE = ${JSON.stringify(baseUrl)};
-      const fileInput = document.getElementById("file");
-      const preview = document.getElementById("preview");
+      const castInput = document.getElementById("castUrl");
       const fidInput = document.getElementById("fid");
+      const preview = document.getElementById("preview");
+      const previewBtn = document.getElementById("previewBtn");
       const submitBtn = document.getElementById("submitBtn");
       const statusEl = document.getElementById("status");
       const form = document.getElementById("form");
@@ -100,55 +98,67 @@ export function renderAppPage(options: AppPageOptions): string {
         statusEl.textContent = msg || "";
         statusEl.className = kind || "";
       }
+      function errMessage(json, res) {
+        return (json && json.error && (json.error.message || json.error)) || ("HTTP " + res.status);
+      }
 
-      // Try to load Farcaster Mini App context (FID) and hide the splash.
       (async () => {
         try {
           const { sdk } = await import("https://esm.sh/@farcaster/miniapp-sdk");
           await sdk.actions.ready();
           const ctx = await sdk.context;
           const fid = ctx && ctx.user && ctx.user.fid;
-          if (fid) {
-            fidInput.value = String(fid);
-            fidInput.readOnly = true;
-          }
+          if (fid) { fidInput.value = String(fid); fidInput.readOnly = true; }
         } catch (e) {
-          // Opened in a normal browser - user enters FID manually.
+          // Normal browser: user enters FID manually.
         }
       })();
 
-      if (fileInput) {
-        fileInput.addEventListener("change", () => {
-          const f = fileInput.files && fileInput.files[0];
-          if (!f) { submitBtn.disabled = true; preview.style.display = "none"; return; }
-          preview.src = URL.createObjectURL(f);
+      async function doPreview() {
+        const castUrl = castInput.value.trim();
+        if (!castUrl) { setStatus("Paste a cast link first.", "err"); return; }
+        previewBtn.disabled = true;
+        setStatus("Resolving image...", "busy");
+        try {
+          const res = await fetch(BASE + "/api/cast/preview", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ castUrl }),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok) { setStatus("Preview failed: " + errMessage(json, res), "err"); return; }
+          preview.src = json.data.imageUrl;
           preview.style.display = "block";
-          submitBtn.disabled = false;
-        });
+          setStatus("Image found. Submit to enter it.", "ok");
+        } catch (e) {
+          setStatus("Network error during preview.", "err");
+        } finally {
+          previewBtn.disabled = false;
+        }
       }
+
+      if (previewBtn) previewBtn.addEventListener("click", doPreview);
 
       if (form) {
         form.addEventListener("submit", async (ev) => {
           ev.preventDefault();
-          const f = fileInput.files && fileInput.files[0];
+          const castUrl = castInput.value.trim();
           const fid = parseInt(fidInput.value, 10);
-          if (!f) { setStatus("Choose a photo first.", "err"); return; }
+          if (!castUrl) { setStatus("Paste your cast link.", "err"); return; }
           if (!Number.isInteger(fid) || fid <= 0) { setStatus("Enter a valid Farcaster FID.", "err"); return; }
 
           submitBtn.disabled = true;
-          setStatus("Uploading...", "");
+          setStatus("Submitting...", "busy");
           try {
-            const fd = new FormData();
-            fd.append("image", f);
-            fd.append("fid", String(fid));
-            const res = await fetch(BASE + "/api/submissions/upload", { method: "POST", body: fd });
+            const res = await fetch(BASE + "/api/submissions/from-cast", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ castUrl, fid }),
+            });
             const json = await res.json().catch(() => ({}));
-            if (!res.ok) {
-              const m = (json && json.error && (json.error.message || json.error)) || ("HTTP " + res.status);
-              setStatus("Failed: " + m, "err");
-              submitBtn.disabled = false;
-              return;
-            }
+            if (!res.ok) { setStatus("Failed: " + errMessage(json, res), "err"); submitBtn.disabled = false; return; }
+            preview.src = json.data.imageUrl;
+            preview.style.display = "block";
             setStatus("FitPic submitted! It is now in the feed.", "ok");
           } catch (e) {
             setStatus("Network error: " + (e && e.message ? e.message : e), "err");
@@ -160,14 +170,12 @@ export function renderAppPage(options: AppPageOptions): string {
       const devSwitch = document.getElementById("devSwitch");
       if (devSwitch) {
         devSwitch.addEventListener("click", async () => {
-          setStatus("Switching phase...", "");
+          setStatus("Switching phase...", "busy");
           try {
             const res = await fetch(BASE + "/frames/dev/submission-phase", { method: "POST" });
             if (res.ok) { location.reload(); }
             else { setStatus("Could not switch phase (HTTP " + res.status + ")", "err"); }
-          } catch (e) {
-            setStatus("Network error switching phase.", "err");
-          }
+          } catch (e) { setStatus("Network error switching phase.", "err"); }
         });
       }
     </script>

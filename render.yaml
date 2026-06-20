@@ -16,3 +16,6 @@ services:
         value: "1"
       - key: ENABLE_DEV_ROUTES
         value: "1"
+      # Required for resolving Farcaster cast links to images (free tier at neynar.com)
+      - key: NEYNAR_API_KEY
+        sync: false
