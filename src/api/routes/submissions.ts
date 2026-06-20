@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { getVotingFeed, submitFitPic } from "../../services/epochService";
-import { resolveCastImage } from "../../services/castResolver";
+import { resolveCastImage, resolveOwnedCastImage } from "../../services/castResolver";
 import { getOrCreateFrameUser } from "../../services/frameUserService";
 import { asyncHandler } from "../middleware/asyncHandler";
 import { submitFitPicSchema, votingFeedQuerySchema } from "../validators/schemas";
@@ -38,7 +38,7 @@ submissionsRouter.post(
     }
 
     await getOrCreateFrameUser(fid);
-    const resolved = await resolveCastImage(castUrl);
+    const resolved = await resolveOwnedCastImage(castUrl, fid);
 
     const submission = await submitFitPic(
       {

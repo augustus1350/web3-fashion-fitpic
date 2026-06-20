@@ -10,7 +10,7 @@ import {
   submitVote,
 } from "./epochService";
 import { renderEmbedPage, renderFramePage } from "./frameHtml";
-import { looksLikeCastUrl, resolveCastImage } from "./castResolver";
+import { looksLikeCastUrl, resolveOwnedCastImage } from "./castResolver";
 import { getOrCreateFrameUser } from "./frameUserService";
 
 export interface FrameActionPayload {
@@ -92,14 +92,6 @@ function resolveFid(payload: FrameActionPayload): number {
   return fid;
 }
 
-function resolveCastHash(payload: FrameActionPayload, fid: number): string {
-  const hash = payload.untrustedData?.castId?.hash;
-  if (hash?.trim()) {
-    return hash.trim();
-  }
-  return `0xframe_${fid}_${Date.now()}`;
-}
-
 /** Warpcast needs a real, reachable image; reject placeholders/non-https. */
 function safeEmbedImage(candidate: string | undefined, fallback: string): string {
   if (
@@ -168,28 +160,20 @@ async function handleSubmissionAction(
   }
 
   try {
-    let imageUrl: string;
-    let castHash: string;
-
-    if (looksLikeCastUrl(input)) {
-      const resolved = await resolveCastImage(input);
-      imageUrl = resolved.imageUrl;
-      castHash = resolved.castHash;
-    } else if (input.startsWith("https://")) {
-      imageUrl = input;
-      castHash = resolveCastHash(payload, fid);
-    } else {
+    if (!looksLikeCastUrl(input)) {
       throw new AppError(
         "INVALID_INPUT",
-        "Paste a Farcaster cast link (warpcast.com or farcaster.xyz).",
+        "Paste a link to your own Farcaster cast (warpcast.com or farcaster.xyz).",
       );
     }
+
+    const resolved = await resolveOwnedCastImage(input, fid);
 
     const submission = await submitFitPic(
       {
         farcasterFid: fid,
-        farcasterCastHash: castHash,
-        imageUrl,
+        farcasterCastHash: resolved.castHash,
+        imageUrl: resolved.imageUrl,
         hasPhysicalProof: false,
       },
       { enforcePhase: false },

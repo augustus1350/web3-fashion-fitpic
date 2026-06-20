@@ -4,6 +4,8 @@ export interface ResolvedCast {
   imageUrl: string;
   castHash: string;
   sourceUrl: string;
+  /** FID of the cast author, when known (only via Neynar). */
+  authorFid?: number;
 }
 
 /** Matches warpcast.com / farcaster.xyz cast links: /<user>/<hash> */
@@ -61,7 +63,7 @@ async function resolveViaNeynar(url: string): Promise<ResolvedCast | null> {
     if (!res.ok) return null;
 
     const data = (await res.json()) as {
-      cast?: { hash?: string; embeds?: NeynarEmbed[] };
+      cast?: { hash?: string; embeds?: NeynarEmbed[]; author?: { fid?: number } };
     };
     const image = firstImageEmbed(data.cast?.embeds);
     if (!image) return null;
@@ -70,6 +72,7 @@ async function resolveViaNeynar(url: string): Promise<ResolvedCast | null> {
       imageUrl: image,
       castHash: data.cast?.hash ?? "",
       sourceUrl: url,
+      authorFid: data.cast?.author?.fid,
     };
   } catch {
     return null;
@@ -162,4 +165,33 @@ export async function resolveCastImage(rawUrl: string): Promise<ResolvedCast> {
     "Could not find an image in that cast. Make sure the cast contains a photo and is public.",
     422,
   );
+}
+
+/**
+ * Resolves a cast image and enforces that the cast belongs to `fid`.
+ * Requires Neynar (author FID) so ownership can be verified.
+ */
+export async function resolveOwnedCastImage(
+  rawUrl: string,
+  fid: number,
+): Promise<ResolvedCast> {
+  const resolved = await resolveCastImage(rawUrl);
+
+  if (resolved.authorFid == null) {
+    throw new AppError(
+      "INVALID_INPUT",
+      "Could not verify the cast author. A Neynar API key is required to submit cast links.",
+      422,
+    );
+  }
+
+  if (resolved.authorFid !== fid) {
+    throw new AppError(
+      "INVALID_INPUT",
+      "You can only submit your own casts — paste a link to a FitPic that you posted.",
+      403,
+    );
+  }
+
+  return resolved;
 }
