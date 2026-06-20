@@ -46,7 +46,7 @@ export function renderAppPage(options: AppPageOptions): string {
       }
       input.text:focus { outline: none; border-color: #6366f1; }
       img.preview { display: none; width: 100%; border-radius: 12px; margin-top: 14px; }
-      img.fit { width: 100%; border-radius: 12px; background: #0d0d0f; aspect-ratio: 1/1; object-fit: cover; }
+      img.fit { display: block; width: 100%; max-height: 65vh; border-radius: 12px; background: #0d0d0f; object-fit: contain; }
       .meta { display: flex; justify-content: space-between; align-items: center; margin: 12px 2px; font-size: 0.9rem; color: #d4d4d8; }
       .row { display: flex; gap: 10px; }
       button.primary {
