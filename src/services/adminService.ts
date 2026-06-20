@@ -24,6 +24,13 @@ export interface FounderReviewResult {
   adminLogId: string;
 }
 
+export interface FounderRemoveResult {
+  castHash: string;
+  submissionStatus: SubmissionStatus;
+  priorStatus: SubmissionStatus;
+  adminLogId: string;
+}
+
 async function logAdminAction(params: {
   adminFid: number;
   action: string;
@@ -263,4 +270,66 @@ export async function founderReviewSubmission(
   }
 
   throw new AppError("INVALID_INPUT", `Unsupported review action: ${action}`);
+}
+
+/**
+ * Founder directly removes a submission from the feed (e.g. not a real FitPic /
+ * guideline violation), regardless of its current status. Audit-logged.
+ */
+export async function founderRemoveSubmission(
+  adminFid: number,
+  castHash: string,
+  reason: string,
+  allowedFounderFids: number[],
+): Promise<FounderRemoveResult> {
+  assertFounderAuthorized(adminFid, allowedFounderFids);
+
+  if (!castHash?.trim() || !reason?.trim()) {
+    throw new AppError("INVALID_INPUT", "castHash and reason are required");
+  }
+
+  const submission = await prisma.submission.findUnique({
+    where: { farcasterCastHash: castHash },
+    include: { user: true },
+  });
+
+  if (!submission) {
+    throw new AppError("SUBMISSION_NOT_FOUND", `No submission for cast ${castHash}`, 404);
+  }
+
+  if (submission.status === SubmissionStatus.REJECTED) {
+    throw new AppError(
+      "SUBMISSION_NOT_ELIGIBLE",
+      "Submission is already removed",
+      409,
+    );
+  }
+
+  const priorStatus = submission.status;
+
+  const { updated, adminLogId } = await prisma.$transaction(async (tx) => {
+    const updatedSubmission = await tx.submission.update({
+      where: { id: submission.id },
+      data: { status: SubmissionStatus.REJECTED },
+    });
+
+    const log = await tx.adminLog.create({
+      data: {
+        adminFid,
+        action: "FOUNDER_REMOVE_SUBMISSION",
+        targetFid: submission.user.farcasterFid,
+        reason,
+        metadata: { castHash, priorStatus },
+      },
+    });
+
+    return { updated: updatedSubmission, adminLogId: log.id };
+  });
+
+  return {
+    castHash,
+    submissionStatus: updated.status,
+    priorStatus,
+    adminLogId,
+  };
 }

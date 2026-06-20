@@ -42,6 +42,12 @@ export const founderReviewSchema = z.object({
   reason: z.string().min(3),
 });
 
+export const founderRemoveSchema = z.object({
+  adminFid: fidSchema,
+  castHash: z.string().min(1),
+  reason: z.string().min(3),
+});
+
 export const votingFeedQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   epochId: z.string().optional(),

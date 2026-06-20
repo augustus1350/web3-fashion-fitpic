@@ -3,16 +3,44 @@ import { env } from "../../config/env";
 import {
   flagSubmission,
   founderAirdropPoints,
+  founderRemoveSubmission,
   founderReviewSubmission,
 } from "../../services/adminService";
+import { renderAdminPage } from "../../services/adminHtml";
 import { asyncHandler } from "../middleware/asyncHandler";
 import {
   flagSubmissionSchema,
   founderAirdropSchema,
+  founderRemoveSchema,
   founderReviewSchema,
 } from "../validators/schemas";
+import { resolveBaseUrl } from "./frames";
 
 export const adminRouter = Router();
+
+adminRouter.get(
+  "/admin",
+  asyncHandler(async (req, res) => {
+    res
+      .status(200)
+      .setHeader("Content-Type", "text/html; charset=utf-8")
+      .send(renderAdminPage({ baseUrl: resolveBaseUrl(req) }));
+  }),
+);
+
+adminRouter.post(
+  "/api/admin/remove",
+  asyncHandler(async (req, res) => {
+    const body = founderRemoveSchema.parse(req.body);
+    const result = await founderRemoveSubmission(
+      body.adminFid,
+      body.castHash,
+      body.reason,
+      env.founderFids,
+    );
+    res.json({ data: result });
+  }),
+);
 
 adminRouter.post(
   "/api/admin/airdrop",
