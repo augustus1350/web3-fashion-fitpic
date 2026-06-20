@@ -8,3 +8,8 @@ dist/
 .dev-pglite-data/
 .render-test-pglite/
 uploads/
+.dev-app-data/
+.test-*-data/
+.test-*/
+scripts/test-*.ts
+scripts/test-*.mjs
