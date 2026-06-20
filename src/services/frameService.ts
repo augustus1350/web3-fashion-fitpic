@@ -27,8 +27,46 @@ export interface FrameContext {
   baseUrl: string;
 }
 
+const VOTING_FEED_LIMIT = 30;
+
 function postUrl(baseUrl: string): string {
   return `${baseUrl.replace(/\/$/, "")}/frames`;
+}
+
+type VotingFeed = Awaited<ReturnType<typeof getVotingFeed>>;
+
+/** Wraps an index into valid feed bounds. */
+function wrapIndex(index: number, length: number): number {
+  return ((index % length) + length) % length;
+}
+
+/**
+ * Renders one swipeable voting card. The feed position is carried in the
+ * frame `state` (`vote:<idx>`) so Skip/Vote can page through all submissions.
+ */
+function renderVotingCard(
+  ctx: FrameContext,
+  feed: VotingFeed,
+  index: number,
+  headline?: string,
+): string {
+  const total = feed.length;
+  const idx = wrapIndex(index, total);
+  const item = feed[idx];
+  const buttons =
+    total > 1
+      ? [{ label: "Vote 🔥" }, { label: "Skip ⏭" }]
+      : [{ label: "Vote 🔥" }];
+
+  return renderFramePage({
+    baseUrl: ctx.baseUrl,
+    imageUrl: item.imageUrl,
+    title: headline ?? "FitPic - Voting phase",
+    subtitle: `Look ${idx + 1}/${total} · ${item.totalVotes} votes`,
+    postUrl: postUrl(ctx.baseUrl),
+    state: `vote:${idx}`,
+    buttons,
+  });
 }
 
 function resolveFid(payload: FrameActionPayload): number {
@@ -108,23 +146,19 @@ export async function renderHomeFrame(ctx: FrameContext): Promise<string> {
   }
 
   if (epoch.phase === EpochPhase.VOTING) {
-    const feed = await getVotingFeed({ limit: 1 });
-    const top = feed[0];
-    const imageUrl = top?.imageUrl ?? FRAME_TEST_LOOKS[0].imageUrl;
-
-    return renderFramePage({
-      baseUrl: ctx.baseUrl,
-      imageUrl,
-      title: "FitPic - Voting phase",
-      subtitle: top
-        ? `Vote on this look (${top.totalVotes} votes)`
-        : "No submissions yet — check back soon.",
-      postUrl: url,
-      state: top ? `vote:${top.farcasterCastHash}` : "vote:none",
-      buttons: top
-        ? [{ label: "Vote 🔥" }, { label: "Skip" }]
-        : [{ label: "Refresh" }],
-    });
+    const feed = await getVotingFeed({ limit: VOTING_FEED_LIMIT });
+    if (feed.length === 0) {
+      return renderFramePage({
+        baseUrl: ctx.baseUrl,
+        imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
+        title: "FitPic - Voting phase",
+        subtitle: "No submissions yet — check back soon.",
+        postUrl: url,
+        state: "vote:none",
+        buttons: [{ label: "Refresh" }],
+      });
+    }
+    return renderVotingCard(ctx, feed, 0);
   }
 
   return renderFramePage({
@@ -242,47 +276,47 @@ async function handleVotingAction(
   postUrlValue: string,
   buttonIndex: number,
 ): Promise<string> {
-  if (buttonIndex === 2) {
-    return renderHomeFrame(ctx);
-  }
+  const feed = await getVotingFeed({ limit: VOTING_FEED_LIMIT });
 
-  const fid = resolveFid(payload);
-  await getOrCreateFrameUser(fid);
-
-  const state = payload.untrustedData?.state ?? "";
-  const castHash = state.startsWith("vote:") ? state.slice(5) : "";
-
-  if (!castHash || castHash === "none") {
-    return renderHomeFrame(ctx);
-  }
-
-  try {
-    const result = await submitVote(fid, castHash);
-    const feed = await getVotingFeed({ limit: 1 });
-    const next = feed.find((item) => item.farcasterCastHash !== castHash) ?? feed[0];
-
-    return renderFramePage({
-      baseUrl: ctx.baseUrl,
-      imageUrl: next?.imageUrl ?? FRAME_TEST_LOOKS[2].imageUrl,
-      title: "Vote counted!",
-      subtitle: `+${result.reputationReward} reputation · ${result.socialPointsReward} social pts`,
-      postUrl: postUrlValue,
-      state: next ? `vote:${next.farcasterCastHash}` : "vote:none",
-      buttons: next
-        ? [{ label: "Vote next 🔥" }, { label: "Done" }]
-        : [{ label: "Done" }],
-    });
-  } catch (error) {
-    const message = error instanceof AppError ? error.message : "Could not cast vote.";
+  if (feed.length === 0) {
     return renderFramePage({
       baseUrl: ctx.baseUrl,
       imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
-      title: "Vote failed",
-      subtitle: message,
+      title: "FitPic - Voting phase",
+      subtitle: "No submissions yet — check back soon.",
       postUrl: postUrlValue,
-      state: `vote:${castHash}`,
-      buttons: [{ label: "Retry" }, { label: "Skip" }],
+      state: "vote:none",
+      buttons: [{ label: "Refresh" }],
     });
+  }
+
+  const state = payload.untrustedData?.state ?? "";
+  const match = state.match(/^vote:(\d+)$/);
+  const currentIdx = wrapIndex(match ? Number(match[1]) : 0, feed.length);
+
+  // Skip → page to the next look without voting.
+  if (buttonIndex === 2 && feed.length > 1) {
+    return renderVotingCard(ctx, feed, currentIdx + 1, "Skipped ⏭");
+  }
+
+  // Vote on the currently shown look.
+  const fid = resolveFid(payload);
+  await getOrCreateFrameUser(fid);
+  const target = feed[currentIdx];
+
+  try {
+    const result = await submitVote(fid, target.farcasterCastHash);
+    const updated = await getVotingFeed({ limit: VOTING_FEED_LIMIT });
+    const nextFeed = updated.length > 0 ? updated : feed;
+    return renderVotingCard(
+      ctx,
+      nextFeed,
+      currentIdx + 1,
+      `Vote counted! +${result.reputationReward} rep`,
+    );
+  } catch (error) {
+    const message = error instanceof AppError ? error.message : "Could not cast vote.";
+    return renderVotingCard(ctx, feed, currentIdx, message);
   }
 }
 
