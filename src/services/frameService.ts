@@ -55,17 +55,32 @@ function renderVotingCard(
   const item = feed[idx];
   const buttons =
     total > 1
-      ? [{ label: "Vote 🔥" }, { label: "Skip ⏭" }]
-      : [{ label: "Vote 🔥" }];
+      ? [{ label: "Vote 🔥" }, { label: "Skip ⏭" }, { label: "Back ⬅" }]
+      : [{ label: "Vote 🔥" }, { label: "Back ⬅" }];
 
   return renderFramePage({
     baseUrl: ctx.baseUrl,
     imageUrl: item.imageUrl,
-    title: headline ?? "FitPic - Voting phase",
+    title: headline ?? "Vote on FitPics",
     subtitle: `Look ${idx + 1}/${total} · ${item.totalVotes} votes`,
     postUrl: postUrl(ctx.baseUrl),
     state: `vote:${idx}`,
     buttons,
+  });
+}
+
+/** Phase-independent home: submit a cast link OR browse & vote. */
+function renderHome(ctx: FrameContext, headline?: string): string {
+  return renderFramePage({
+    baseUrl: ctx.baseUrl,
+    imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
+    title: headline ?? "FitPic",
+    subtitle: "Paste your Farcaster FitPic cast link to submit — or browse & vote.",
+    postUrl: postUrl(ctx.baseUrl),
+    state: "home",
+    textInput: true,
+    textInputPlaceholder: "https://warpcast.com/you/0x… (your cast link)",
+    buttons: [{ label: "Submit cast link" }, { label: "Browse & vote 👀" }],
   });
 }
 
@@ -98,103 +113,43 @@ function safeEmbedImage(candidate: string | undefined, fallback: string): string
 }
 
 export async function renderHomeEmbed(ctx: FrameContext): Promise<string> {
-  const epoch = await getOrCreateCurrentEpoch();
-
-  if (epoch.phase === EpochPhase.SUBMISSION) {
-    return renderEmbedPage({
-      baseUrl: ctx.baseUrl,
-      imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
-      title: "FitPic - Submission phase",
-      subtitle: "Submit your look and earn channel points.",
-    });
-  }
-
-  if (epoch.phase === EpochPhase.VOTING) {
-    const feed = await getVotingFeed({ limit: 1 });
-    const top = feed[0];
-    return renderEmbedPage({
-      baseUrl: ctx.baseUrl,
-      imageUrl: safeEmbedImage(top?.imageUrl, FRAME_TEST_LOOKS[0].imageUrl),
-      title: "FitPic - Voting phase",
-      subtitle: top ? `Vote on looks (${top.totalVotes} votes on leader)` : "Vote on community looks.",
-    });
-  }
-
+  const feed = await getVotingFeed({ limit: 1 }).catch(() => []);
+  const top = feed[0];
   return renderEmbedPage({
     baseUrl: ctx.baseUrl,
-    imageUrl: FRAME_TEST_LOOKS[1].imageUrl,
-    title: "FitPic - Epoch ended",
-    subtitle: "A new submission window opens soon.",
+    imageUrl: safeEmbedImage(top?.imageUrl, FRAME_TEST_LOOKS[0].imageUrl),
+    title: "FitPic",
+    subtitle: "Submit your look or vote on community FitPics.",
   });
 }
 
 export async function renderHomeFrame(ctx: FrameContext): Promise<string> {
-  const epoch = await getOrCreateCurrentEpoch();
-  const url = postUrl(ctx.baseUrl);
-
-  if (epoch.phase === EpochPhase.SUBMISSION) {
-    return renderFramePage({
-      baseUrl: ctx.baseUrl,
-      imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
-      title: "FitPic - Submission phase",
-      subtitle: "Paste a link to your Farcaster FitPic cast, then submit.",
-      postUrl: url,
-      textInput: true,
-      textInputPlaceholder: "https://warpcast.com/you/0x… (your cast link)",
-      buttons: [{ label: "Submit cast link" }],
-    });
-  }
-
-  if (epoch.phase === EpochPhase.VOTING) {
-    const feed = await getVotingFeed({ limit: VOTING_FEED_LIMIT });
-    if (feed.length === 0) {
-      return renderFramePage({
-        baseUrl: ctx.baseUrl,
-        imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
-        title: "FitPic - Voting phase",
-        subtitle: "No submissions yet — check back soon.",
-        postUrl: url,
-        state: "vote:none",
-        buttons: [{ label: "Refresh" }],
-      });
-    }
-    return renderVotingCard(ctx, feed, 0);
-  }
-
-  return renderFramePage({
-    baseUrl: ctx.baseUrl,
-    imageUrl: FRAME_TEST_LOOKS[1].imageUrl,
-    title: "FitPic - Epoch ended",
-    subtitle: "A new submission window opens soon.",
-    postUrl: url,
-    buttons: [{ label: "Refresh" }],
-  });
+  return renderHome(ctx);
 }
 
 export async function handleFrameAction(
   ctx: FrameContext,
   payload: FrameActionPayload,
 ): Promise<string> {
-  const epoch = await getOrCreateCurrentEpoch();
   const url = postUrl(ctx.baseUrl);
   const buttonIndex = payload.untrustedData?.buttonIndex ?? 0;
+  const state = payload.untrustedData?.state ?? "";
 
-  if (epoch.phase === EpochPhase.SUBMISSION) {
-    return handleSubmissionAction(ctx, payload, url, buttonIndex);
-  }
-
-  if (epoch.phase === EpochPhase.VOTING) {
+  // In the voting view: vote / skip / back.
+  if (state.startsWith("vote:")) {
     return handleVotingAction(ctx, payload, url, buttonIndex);
   }
 
-  return renderFramePage({
-    baseUrl: ctx.baseUrl,
-    imageUrl: FRAME_TEST_LOOKS[1].imageUrl,
-    title: "Epoch ended",
-    subtitle: "Refresh when the next epoch starts.",
-    postUrl: url,
-    buttons: [{ label: "Refresh" }],
-  });
+  // Home view: button 2 = browse & vote, otherwise submit the pasted cast link.
+  if (buttonIndex === 2) {
+    const feed = await getVotingFeed({ limit: VOTING_FEED_LIMIT });
+    if (feed.length === 0) {
+      return renderHome(ctx, "No submissions yet — be the first!");
+    }
+    return renderVotingCard(ctx, feed, 0);
+  }
+
+  return handleSubmissionAction(ctx, payload, url, buttonIndex);
 }
 
 async function handleSubmissionAction(
@@ -209,16 +164,7 @@ async function handleSubmissionAction(
   const input = payload.untrustedData?.inputText?.trim();
 
   if (!input) {
-    return renderFramePage({
-      baseUrl: ctx.baseUrl,
-      imageUrl: FRAME_TEST_LOOKS[0].imageUrl,
-      title: "Paste your cast link",
-      subtitle: "Copy the link of a FitPic you posted on Farcaster and paste it above.",
-      postUrl: postUrlValue,
-      textInput: true,
-      textInputPlaceholder: "https://warpcast.com/you/0x… (your cast link)",
-      buttons: [{ label: "Submit cast link" }],
-    });
+    return renderHome(ctx, "Paste your cast link above to submit");
   }
 
   try {
@@ -239,12 +185,15 @@ async function handleSubmissionAction(
       );
     }
 
-    const submission = await submitFitPic({
-      farcasterFid: fid,
-      farcasterCastHash: castHash,
-      imageUrl,
-      hasPhysicalProof: false,
-    });
+    const submission = await submitFitPic(
+      {
+        farcasterFid: fid,
+        farcasterCastHash: castHash,
+        imageUrl,
+        hasPhysicalProof: false,
+      },
+      { enforcePhase: false },
+    );
 
     return renderFramePage({
       baseUrl: ctx.baseUrl,
@@ -252,7 +201,8 @@ async function handleSubmissionAction(
       title: "FitPic submitted!",
       subtitle: `FID ${fid} · linked from your cast`,
       postUrl: postUrlValue,
-      buttons: [{ label: "Submit another" }],
+      state: "home",
+      buttons: [{ label: "Submit another" }, { label: "Browse & vote 👀" }],
     });
   } catch (error) {
     const message =
@@ -263,9 +213,10 @@ async function handleSubmissionAction(
       title: "Submission failed",
       subtitle: message,
       postUrl: postUrlValue,
+      state: "home",
       textInput: true,
       textInputPlaceholder: "https://warpcast.com/you/0x… (your cast link)",
-      buttons: [{ label: "Try again" }],
+      buttons: [{ label: "Try again" }, { label: "Browse & vote 👀" }],
     });
   }
 }
@@ -293,9 +244,15 @@ async function handleVotingAction(
   const state = payload.untrustedData?.state ?? "";
   const match = state.match(/^vote:(\d+)$/);
   const currentIdx = wrapIndex(match ? Number(match[1]) : 0, feed.length);
+  const multi = feed.length > 1;
 
-  // Skip → page to the next look without voting.
-  if (buttonIndex === 2 && feed.length > 1) {
+  // Back ⬅ to home (button 3 when multi, button 2 when single).
+  if ((multi && buttonIndex === 3) || (!multi && buttonIndex === 2)) {
+    return renderHome(ctx);
+  }
+
+  // Skip ⏭ → page to the next look without voting.
+  if (multi && buttonIndex === 2) {
     return renderVotingCard(ctx, feed, currentIdx + 1, "Skipped ⏭");
   }
 
@@ -305,7 +262,9 @@ async function handleVotingAction(
   const target = feed[currentIdx];
 
   try {
-    const result = await submitVote(fid, target.farcasterCastHash);
+    const result = await submitVote(fid, target.farcasterCastHash, {
+      enforcePhase: false,
+    });
     const updated = await getVotingFeed({ limit: VOTING_FEED_LIMIT });
     const nextFeed = updated.length > 0 ? updated : feed;
     return renderVotingCard(

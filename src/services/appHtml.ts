@@ -8,8 +8,7 @@ export interface AppPageOptions {
 
 /** Interactive Farcaster Mini App webview: submit a FitPic by linking a cast. */
 export function renderAppPage(options: AppPageOptions): string {
-  const { baseUrl, phase, devRoutes } = options;
-  const isSubmission = phase === EpochPhase.SUBMISSION;
+  const { baseUrl } = options;
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -55,8 +54,7 @@ export function renderAppPage(options: AppPageOptions): string {
     <h1>FitPic</h1>
     <p class="sub">Link a FitPic you posted on Farcaster. Your cast image gets entered into the current epoch.</p>
     <div class="card">
-      <div class="badge">Phase: ${escapeAttr(phase)}</div>
-      <div id="submitUi" style="${isSubmission ? "" : "display:none"}">
+      <div id="submitUi">
         <ol class="steps">
           <li>Post your FitPic as a cast on Farcaster (with the photo).</li>
           <li>Open the cast, tap share, and copy its link.</li>
@@ -73,14 +71,9 @@ export function renderAppPage(options: AppPageOptions): string {
           <button type="submit" class="primary" id="submitBtn">Submit FitPic</button>
         </form>
       </div>
-      <div id="closedUi" style="${isSubmission ? "display:none" : ""}">
-        <p class="sub" style="margin-top:14px">Submissions are closed right now (current phase: ${escapeAttr(phase)}).</p>
-        ${
-          devRoutes
-            ? `<button class="ghost" id="devSwitch">Dev: switch to submission phase</button>`
-            : ""
-        }
-      </div>
+      <p class="sub" style="margin-top:16px">
+        Already submitted? <a href="${escapeAttr(baseUrl.replace(/\/$/, ""))}/frames" style="color:#818cf8">Open the frame to browse &amp; vote →</a>
+      </p>
       <div id="status"></div>
     </div>
 

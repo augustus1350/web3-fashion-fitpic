@@ -108,7 +108,10 @@ export async function requireEpochPhase(required: EpochPhase): Promise<Epoch> {
  * Submits a FitPic during the SUBMISSION phase.
  * Physical proof bypasses rookie visibility filters and grants an initial boost.
  */
-export async function submitFitPic(input: SubmitFitPicInput): Promise<Submission> {
+export async function submitFitPic(
+  input: SubmitFitPicInput,
+  options: { enforcePhase?: boolean } = {},
+): Promise<Submission> {
   const { farcasterFid, farcasterCastHash, imageUrl, hasPhysicalProof } = input;
 
   if (!farcasterCastHash?.trim() || !imageUrl?.trim()) {
@@ -116,7 +119,10 @@ export async function submitFitPic(input: SubmitFitPicInput): Promise<Submission
   }
 
   const user = await requireActiveUser(farcasterFid);
-  const epoch = await requireEpochPhase(EpochPhase.SUBMISSION);
+  const epoch =
+    options.enforcePhase === false
+      ? await getOrCreateCurrentEpoch()
+      : await requireEpochPhase(EpochPhase.SUBMISSION);
 
   const existing = await prisma.submission.findUnique({
     where: { farcasterCastHash },
@@ -151,8 +157,14 @@ export async function submitFitPic(input: SubmitFitPicInput): Promise<Submission
 /**
  * Delegates to the voting engine; only callable during VOTING phase.
  */
-export async function submitVote(voterFid: number, castHash: string) {
-  await requireEpochPhase(EpochPhase.VOTING);
+export async function submitVote(
+  voterFid: number,
+  castHash: string,
+  options: { enforcePhase?: boolean } = {},
+) {
+  if (options.enforcePhase !== false) {
+    await requireEpochPhase(EpochPhase.VOTING);
+  }
   return castVote(voterFid, castHash);
 }
 

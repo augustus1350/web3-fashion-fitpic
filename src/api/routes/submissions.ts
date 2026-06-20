@@ -40,12 +40,15 @@ submissionsRouter.post(
     await getOrCreateFrameUser(fid);
     const resolved = await resolveCastImage(castUrl);
 
-    const submission = await submitFitPic({
-      farcasterFid: fid,
-      farcasterCastHash: resolved.castHash,
-      imageUrl: resolved.imageUrl,
-      hasPhysicalProof: false,
-    });
+    const submission = await submitFitPic(
+      {
+        farcasterFid: fid,
+        farcasterCastHash: resolved.castHash,
+        imageUrl: resolved.imageUrl,
+        hasPhysicalProof: false,
+      },
+      { enforcePhase: false },
+    );
 
     res.status(201).json({
       data: {
