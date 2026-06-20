@@ -30,10 +30,13 @@ export function errorHandler(
   }
 
   console.error(err);
+  const detail =
+    err instanceof Error ? `${err.name}: ${err.message}` : String(err);
   res.status(500).json({
     error: {
       code: "INTERNAL_ERROR",
       message: "An unexpected error occurred",
+      detail,
     },
   });
 }
