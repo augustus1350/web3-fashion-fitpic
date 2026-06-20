@@ -18,6 +18,52 @@ export function looksLikeCastUrl(value: string): boolean {
   return CAST_URL_RE.test(value.trim());
 }
 
+function parseCastUrl(
+  value: string,
+): { username: string; shortHash: string } | null {
+  const m = value.trim().match(CAST_URL_RE);
+  return m ? { username: m[2], shortHash: m[3] } : null;
+}
+
+/**
+ * Resolves a Farcaster username (the author in a cast URL) to its FID using
+ * public, key-less endpoints: Warpcast API first, fnames registry as fallback.
+ */
+async function resolveAuthorFidByUsername(
+  username: string,
+): Promise<number | null> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.warpcast.com/v2/user-by-username?username=${encodeURIComponent(username)}`,
+      { headers: { accept: "application/json" } },
+    );
+    if (res.ok) {
+      const data = (await res.json()) as {
+        result?: { user?: { fid?: number } };
+      };
+      const fid = data.result?.user?.fid;
+      if (typeof fid === "number") return fid;
+    }
+  } catch {
+    /* fall through to fnames */
+  }
+
+  try {
+    const res = await fetchWithTimeout(
+      `https://fnames.farcaster.xyz/transfers/current?name=${encodeURIComponent(username)}`,
+      { headers: { accept: "application/json" } },
+    );
+    if (res.ok) {
+      const data = (await res.json()) as { transfer?: { to?: number } };
+      if (typeof data.transfer?.to === "number") return data.transfer.to;
+    }
+  } catch {
+    /* give up */
+  }
+
+  return null;
+}
+
 async function fetchWithTimeout(
   url: string,
   init: RequestInit = {},
@@ -177,15 +223,24 @@ export async function resolveOwnedCastImage(
 ): Promise<ResolvedCast> {
   const resolved = await resolveCastImage(rawUrl);
 
-  if (resolved.authorFid == null) {
+  // Author FID from Neynar if available, else derive from the URL username.
+  let authorFid = resolved.authorFid;
+  if (authorFid == null) {
+    const parsed = parseCastUrl(rawUrl);
+    if (parsed) {
+      authorFid = (await resolveAuthorFidByUsername(parsed.username)) ?? undefined;
+    }
+  }
+
+  if (authorFid == null) {
     throw new AppError(
       "INVALID_INPUT",
-      "Could not verify the cast author. A Neynar API key is required to submit cast links.",
+      "Could not verify the cast author. Paste the link directly from your own cast.",
       422,
     );
   }
 
-  if (resolved.authorFid !== fid) {
+  if (authorFid !== fid) {
     throw new AppError(
       "INVALID_INPUT",
       "You can only submit your own casts — paste a link to a FitPic that you posted.",
@@ -193,5 +248,5 @@ export async function resolveOwnedCastImage(
     );
   }
 
-  return resolved;
+  return { ...resolved, authorFid };
 }
